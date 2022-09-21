@@ -9,7 +9,8 @@ const ws = new WebSocket('wss://gateway.discord.gg/?v=9&encoding=json')
 
 const {
   accessToken,
-  searchList,
+  seriesList,
+  namesList,
   channels,
 } = require('../config')
 
@@ -24,11 +25,12 @@ ws.on('open', () => {
 const now = () => (new Date - 0)
 
 let LastDrop = now()
-let LastSequence
 let LastClickAt
 let NextGrabAt
+
 let SessionId
 let UserId
+let LastSequence
 
 const grabLatency = () => (Math.random() * 300)
 const canGrab = () => (
@@ -58,19 +60,22 @@ const handleUnauthorized = (req) => {
 
 const grab = async (d, grabType) => { 
   const cards = await ocr(d.attachments[0].url, d.id)
-  logDrop(cards)
+  logDrop(cards.filter(e => e.name && e.serie).map(e => `${e.name} {${e.serie}}`))
 
   cards.forEach((card, index) => {
     if (card === '') { return ; }
-    if (searchList.filter(c => card.includes(c)).length === 0) { return ; }
+    if (seriesList?.filter(c => card.serie?.includes(c)).length === 0) { return ; }
+    if (namesList?.filter(c => card.name?.includes(c)).length === 0) { return ; }
+    const cardDescription = `${card.name} {${card.serie}}`
+
     if (grabType === 'reaction') {
       setTimeout(() => {
         if (!canGrab()) {
-          logMiss(card)
+          logMiss(cardDescription)
           return
         }
         LastClickAt = now()
-        logGrab(card)
+        logGrab(cardDescription)
 
         postReaction({
           number: index + 1,
@@ -82,10 +87,10 @@ const grab = async (d, grabType) => {
     } else if (grabType === 'interaction') {
       setTimeout(() => {
         if (!canGrab()) {
-          logMiss(card)
+          logMiss(cardDescription)
           return
         }
-        logGrab(card)
+        logGrab(cardDescription)
         LastClickAt = now()
 
         postInteraction({

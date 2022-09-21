@@ -32,7 +32,8 @@ Open `config.js`
 ```
 {
   accessToken: string                   # Your discord accessToken
-  searchList: Array<string>             # The list of searched series`
+  seriesList?: Array<string>            # The list of whished series
+  namesList?: Array<string>             # The list of whished names
   channels: Array<{
     name?: string                       # discord channel name, optional
     guildId: string                     # discord Server/Guild id, can be found in typing request

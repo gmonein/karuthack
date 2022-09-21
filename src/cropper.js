@@ -14,6 +14,12 @@ const fs = require('fs');
 const offsetX = 274
 const startX = 44
 const serieY = 307
+
+const nameX = 44
+const nameY = 57
+const nameHeight = 47
+const nameWidth = 199
+
 const width = 195
 
 const serieHeight = 60
@@ -34,7 +40,7 @@ module.exports = async function ocr(url, id) {
 
   await new Promise(resolve => magik.convert([originalImage, '-threshold', '30%', originalImage], resolve))
 
-  let cards = ['', '', '', '']
+  let cards = [{}, {}, {}, {}]
   for (let i = 0; i != 4; i += 1) {
     let outputImage = `/tmp/card_${i}_${id}_s.webp`;
     try {
@@ -51,7 +57,24 @@ module.exports = async function ocr(url, id) {
       cardSerie = await tesseract.recognize(outputImage, tesseractConfig)
     } catch (e) { console.error(e) ; continue }
 
-    cards[i] = cardSerie.split("\n").map(e => e.trim()).join(' ').trim();
+    try {
+      await sharp(originalImage).extract({
+        left: nameX + i * offsetX,
+        top: nameY,
+        width: nameWidth,
+        height: nameHeight,
+      }).toFile(outputImage)
+    } catch { break }
+
+    let cardName
+    try {
+      cardName = await tesseract.recognize(outputImage, tesseractConfig)
+    } catch (e) { console.error(e) ; continue }
+
+    cards[i] = {
+      serie: cardSerie.split("\n").map(e => e.trim()).join(' ').trim(),
+      name: cardName.split("\n").map(e => e.trim()).join(' ').trim(),
+    };
     (async () => { fs.unlink(outputImage, () => {}) })().catch(console.error);
   }
   (async () => { fs.unlink(originalImage, () => {}) })().catch(console.error);
