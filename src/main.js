@@ -9,6 +9,7 @@ const ws = new WebSocket('wss://gateway.discord.gg/?v=9&encoding=json')
 
 const {
   accessToken,
+  allNameInSeries,
   seriesList,
   namesList,
   channels,
@@ -64,8 +65,11 @@ const grab = async (d, grabType) => {
 
   cards.forEach((card, index) => {
     if (card === '') { return ; }
-    if (seriesList?.filter(c => card.serie?.includes(c)).length === 0) { return ; }
-    if (namesList?.filter(c => card.name?.includes(c)).length === 0) { return ; }
+
+    const forceTake = allNameInSeries && allNameInSeries.filter(c => card.serie?.includes(c)).length !== 0
+    if (!forceTake && seriesList?.filter(c => card.serie?.includes(c)).length === 0) { return ; }
+    if (!forceTake && namesList?.filter(c => card.name?.includes(c)).length === 0) { return ; }
+
     const cardDescription = `${card.name} {${card.serie}}`
 
     if (grabType === 'reaction') {

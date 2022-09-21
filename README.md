@@ -32,6 +32,7 @@ Open `config.js`
 ```
 {
   accessToken: string                   # Your discord accessToken
+  allNameInSeries?: Array<string>       # A list of series where ALL names matches, skip seriesList && namesList
   seriesList?: Array<string>            # The list of whished series
   namesList?: Array<string>             # The list of whished names
   channels: Array<{
