@@ -1,6 +1,6 @@
 # Karuta grabbing bot
 
-A Karuta discord grabbing bot for the main server
+A Karuta discord grabbing bot
 
 ![image](https://user-images.githubusercontent.com/20827160/191590289-3b058224-f5a5-43f9-b7c5-5a84948e5b80.png)
 

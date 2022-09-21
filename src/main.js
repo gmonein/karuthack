@@ -11,7 +11,7 @@ const {
   accessToken,
   searchList,
   channels,
-} = require('./config')
+} = require('../config')
 
 ws.on('open', () => {
   ws.send(`{"op":2,"d":{"token":"${accessToken}","capabilities":1021,"properties":{"os":"Linux","browser":"Firefox","device":"","system_locale":"en-US","browser_user_agent":"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:104.0) Gecko/20100101 Firefox/104.0","browser_version":"104.0","os_version":"","referrer":"https://www.google.com/","referring_domain":"www.google.com","search_engine":"google","referrer_current":"","referring_domain_current":"","release_channel":"stable","client_build_number":147616,"client_event_source":null},"presence":{"status":"online","since":0,"activities":[],"afk":false},"compress":false,"client_state":{"guild_hashes":{},"highest_last_message_id":"0","read_state_version":0,"user_guild_settings_version":-1,"user_settings_version":-1}}}`)
@@ -30,19 +30,25 @@ let NextGrabAt
 let SessionId
 let UserId
 
-const grabLatency = () => (Math.random() * 300 + 200)
+const grabLatency = () => (Math.random() * 300)
 const canGrab = () => (
-  (!NextGrabAt || NextGrabAt - now() > 60_000 * 10)
+  (!NextGrabAt || NextGrabAt < now())
   &&
   (!LastClickAt || now() - LastClickAt > 80_000)
 )
 
-const logDrop = (cards) => { console.log(`\x1b[47m \x1b[0m Dropping:\t`, cards.join(', ')) }
-const logMiss = (card) => { console.log(`\x1b[41m \x1b[0m Missed:\t`, card) }
-const logGrab = (card) => { console.log(`\x1b[44m \x1b[0m Grabbing:\t`, card) }
-const logGrabbed = (card) => { console.log(`\x1b[42m \x1b[0m Grabeb:\t`, card) }
-const logWait = () => { console.log(`\x1b[41m \x1b[0m Waiting:\t`, 10 - Math.ceil((NextGrabAt - now()) / 1000 / 60), "minutes") }
-const logBeated = () => { console.log(`\x1b[41m \x1b[0m Beated:\t`, card) }
+const emojiDrop = '🪧 '
+const emojiGrab = '👉'
+const emojiGrabbed = '🟢'
+const emojiMiss = '🟠'
+const emojiBeated = '😡'
+const emojiWait = '🕐'
+const logDrop =    (cards) => { console.log(`${emojiDrop} Dropping:        `.slice(0, 17), cards.join(', ')) }
+const logGrab =    (card) =>  { console.log(`${emojiGrab} Grabbing:        `.slice(0, 16), card) }
+const logGrabbed = (card) =>  { console.log(`${emojiGrabbed} Grabbeb:      `.slice(0, 16), card) }
+const logMiss =    (card) =>  { console.log(`${emojiMiss} Missed:          `.slice(0, 16), card); logWait() }
+const logBeated =  (card) =>  { console.log(`${emojiBeated} Beated:        `.slice(0, 16), card) }
+const logWait =    () =>      { console.log(`${emojiWait} Waiting:         `.slice(0, 16), Math.ceil((NextGrabAt - now()) / 1000 / 60), "minutes") }
 
 const handleUnauthorized = (req) => {
   if (req.status.toString()[0] !== '2') {
@@ -57,12 +63,6 @@ const grab = async (d, grabType) => {
   cards.forEach((card, index) => {
     if (card === '') { return ; }
     if (searchList.filter(c => card.includes(c)).length === 0) { return ; }
-    if (!canGrab()) {
-      logMiss(card)
-      return
-    }
-    logGrab(card)
-
     if (grabType === 'reaction') {
       setTimeout(() => {
         if (!canGrab()) {
@@ -70,6 +70,7 @@ const grab = async (d, grabType) => {
           return
         }
         LastClickAt = now()
+        logGrab(card)
 
         postReaction({
           number: index + 1,
@@ -84,6 +85,7 @@ const grab = async (d, grabType) => {
           logMiss(card)
           return
         }
+        logGrab(card)
         LastClickAt = now()
 
         postInteraction({

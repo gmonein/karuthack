@@ -3,8 +3,7 @@ const tesseract = require("node-tesseract-ocr")
 const tesseractConfig = {
   oem: 1,
   psm: 6,
-  tessedit_char_whitelist: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx\" \"yz",
-  lang: 'eng'
+  tessedit_char_whitelist: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx\" \"yz"
 }
 
 const magik = require('imagemagick');
@@ -20,7 +19,7 @@ const width = 195
 const serieHeight = 60
 
 module.exports = async function ocr(url, id) {
-  const originalImage = `tmp/card_${id}.webp`
+  const originalImage = `/tmp/card_${id}.webp`
   const file = fs.createWriteStream(originalImage);
 
   await new Promise((resolve) => {
@@ -37,7 +36,7 @@ module.exports = async function ocr(url, id) {
 
   let cards = ['', '', '', '']
   for (let i = 0; i != 4; i += 1) {
-    let outputImage = `tmp/card_${i}_${id}_s.webp`;
+    let outputImage = `/tmp/card_${i}_${id}_s.webp`;
     try {
       await sharp(originalImage).extract({
         left: startX + i * offsetX,
