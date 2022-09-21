@@ -2,6 +2,8 @@
 
 A Karuta discord grabbing bot for the main server
 
+![image](https://user-images.githubusercontent.com/20827160/191590289-3b058224-f5a5-43f9-b7c5-5a84948e5b80.png)
+
 ## Instalation
 
 ### Without docker
