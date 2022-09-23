@@ -4,6 +4,7 @@ const WebSocket = require('ws')
 const postReaction = require('./postReaction')
 const ocr = require('./cropper')
 const postInteraction = require('./interaction')
+const fs = require('fs')
 
 const ws = new WebSocket('wss://gateway.discord.gg/?v=9&encoding=json')
 
@@ -13,6 +14,7 @@ const {
   seriesList,
   namesList,
   channels,
+  dynamicNameList
 } = require('../config')
 
 ws.on('open', () => {
@@ -24,6 +26,7 @@ ws.on('open', () => {
 })
 
 const now = () => (new Date - 0)
+const nowString = () => ((new Date).toISOString().slice(0,16).replace(/T/g," "))
 
 let LastDrop = now()
 let LastClickAt
@@ -33,24 +36,25 @@ let SessionId
 let UserId
 let LastSequence
 
-const grabLatency = () => (Math.random() * 300)
+const grabLatency = () => (Math.random() * 70)
 const canGrab = () => (
   (!NextGrabAt || NextGrabAt < now())
   &&
-  (!LastClickAt || now() - LastClickAt > 80_000)
+  (!LastClickAt || now() - LastClickAt > 20_000)
 )
 
+const space = "                                                      "
 const emojiDrop = '🪧 '
 const emojiGrab = '👉'
 const emojiGrabbed = '🟢'
 const emojiMiss = '🟠'
 const emojiBeated = '😡'
 const emojiWait = '🕐'
-const logDrop =    (cards) => { console.log(`${emojiDrop} Dropping:        `.slice(0, 17), cards.join(', ')) }
+const logDrop =    (cards) => { console.log(`${emojiDrop} Dropping:        `.slice(0, 17), cards.join(' '));  fs.appendFile('./drops.txt', `${nowString()}: ${cards.join(' ')}\n`, () => {}) }
 const logGrab =    (card) =>  { console.log(`${emojiGrab} Grabbing:        `.slice(0, 16), card) }
-const logGrabbed = (card) =>  { console.log(`${emojiGrabbed} Grabbeb:      `.slice(0, 16), card) }
-const logMiss =    (card) =>  { console.log(`${emojiMiss} Missed:          `.slice(0, 16), card); logWait() }
-const logBeated =  (card) =>  { console.log(`${emojiBeated} Beated:        `.slice(0, 16), card) }
+const logGrabbed = (card) =>  { console.log(`${emojiGrabbed} Grabbeb:      `.slice(0, 16), card);             fs.appendFile('./grabbed.txt', `${nowString()}: ${card}\n`, () => {}) }
+const logMiss =    (card) =>  { console.log(`${emojiMiss} Missed:          `.slice(0, 16), card); logWait();  fs.appendFile('./missed.txt', `${nowString()}: ${card}\n`, () => {}) }
+const logBeated =  (card) =>  { console.log(`${emojiBeated} Beated:        `.slice(0, 16), card);             fs.appendFile('./beated.txt', `${nowString()}: ${card}\n`, () => {}) }
 const logWait =    () =>      { console.log(`${emojiWait} Waiting:         `.slice(0, 16), Math.ceil((NextGrabAt - now()) / 1000 / 60), "minutes") }
 
 const handleUnauthorized = (req) => {
@@ -61,14 +65,21 @@ const handleUnauthorized = (req) => {
 
 const grab = async (d, grabType) => { 
   const cards = await ocr(d.attachments[0].url, d.id)
-  logDrop(cards.filter(e => e.name && e.serie).map(e => `${e.name} {${e.serie}}`))
+  logDrop(cards.filter(e => e.name && e.serie).map(e => `${e.name} {${e.serie}}${space}`.slice(0, 64)))
 
   cards.forEach((card, index) => {
     if (card === '') { return ; }
 
     const forceTake = allNameInSeries && allNameInSeries.filter(c => card.serie?.includes(c)).length !== 0
-    if (!forceTake && seriesList?.filter(c => card.serie?.includes(c)).length === 0) { return ; }
-    if (!forceTake && namesList?.filter(c => card.name?.includes(c)).length === 0) { return ; }
+
+    if (!forceTake) {
+      if (seriesList?.filter(c => card.serie?.includes(c)).length === 0) { return ; }
+
+      const inNameList = namesList?.filter(c => card.name?.includes(c)).length !== 0
+      const inDynamicNameList = JSON.parse(fs.readFileSync(dynamicNameList)).filter(c => card.name?.includes(c)).length !== 0
+
+      if (!inNameList && !inDynamicNameList) { return }
+    }
 
     const cardDescription = `${card.name} {${card.serie}}`
 
@@ -113,7 +124,7 @@ const grab = async (d, grabType) => {
 
 const handleWait = (d) => {
   const matchWait = d.content.split(/\n/).filter((line) => (
-    line.includes("you must wait ") && line.includes(`<@${UserId}>`)
+    line.includes("you must wait") && line.includes(`<@${UserId}>`)
   ))[0]
 
   if (matchWait) {
@@ -122,7 +133,7 @@ const handleWait = (d) => {
     }
     for (let i = 1; i < 10; i += 1) {
       if (matchWait.includes(`${i} minutes`)) {
-        NextGrabAt = now() + 60_000 * i
+        NextGrabAt = now() + 70_000 * i
         break
       }
     }
@@ -136,14 +147,19 @@ const handleTook = (d) => {
   ))[0]
 
   if (matchTook) {
-    const card = matchTook.split("took the ")[1].split(" card")[0]
+    const card = matchTook.split("took the ")[1].split(" card")[0].split('**')[1]
     const grabbed = matchTook.startsWith(`<@${UserId}> took the`) || matchTook.startsWith(`<@${UserId}> fought`)
 
     if (grabbed) {
-      NextGrabAt = now() + 60_000 * 10
+      NextGrabAt = now() + 70_000 * 10
       logGrabbed(card)
+
+      const parsedDynamicNameList = JSON.parse(fs.readFileSync(dynamicNameList))
+      if (parsedDynamicNameList.find(c => card.name.includes(c))) {
+        fs.writeFileSync(parsedDynamicNameList.filter(c => !card.name.includes(c)))
+      }
     } else {
-      NextGrabAt = now() + 60_000
+      NextGrabAt = now() + 70_000
       logBeated(card)
     }
   }
