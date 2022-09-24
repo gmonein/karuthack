@@ -1,15 +1,14 @@
-const sharp = require('sharp');
-const tesseract = require("node-tesseract-ocr")
+import * as sharp from 'sharp';
+import * as tesseract from 'node-tesseract-ocr';
+import * as magik from 'imagemagick';
+import * as http from 'https';
+import * as fs from 'fs'
+
 const tesseractConfig = {
   oem: 1,
   psm: 6,
   tessedit_char_whitelist: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx\" \"yz"
 }
-
-const magik = require('imagemagick');
-
-const http = require('https');
-const fs = require('fs');
 
 const offsetX = 274
 const startX = 44
@@ -21,10 +20,14 @@ const nameHeight = 47
 const nameWidth = 199
 
 const width = 195
-
 const serieHeight = 60
 
-module.exports = async function ocr(url, id) {
+export type Card = {
+  name?: string,
+  serie?: string;
+}
+
+export default async function ocr(url: string, id: string): Promise<Array<Card>> {
   const originalImage = `/tmp/card_${id}.webp`
   const file = fs.createWriteStream(originalImage);
 
@@ -33,16 +36,16 @@ module.exports = async function ocr(url, id) {
       response.pipe(file);
 
       file.on("finish", () => {
-        file.close(() => { resolve() });
+        file.close(() => { resolve('') });
       });
     })
   })
 
   await new Promise(resolve => magik.convert([originalImage, '-threshold', '30%', originalImage], resolve))
 
-  let cards = [{}, {}, {}, {}]
+  const cards: Array<Card> = [{}, {}, {}, {}]
   for (let i = 0; i != 4; i += 1) {
-    let outputImage = `/tmp/card_${i}_${id}_s.webp`;
+    const outputImage = `/tmp/card_${i}_${id}_s.webp`;
     try {
       await sharp(originalImage).extract({
         left: startX + i * offsetX,
@@ -52,7 +55,7 @@ module.exports = async function ocr(url, id) {
       }).toFile(outputImage)
     } catch { break }
 
-    let cardSerie
+    let cardSerie: string
     try {
       cardSerie = await tesseract.recognize(outputImage, tesseractConfig)
     } catch (e) { console.error(e) ; continue }
@@ -64,9 +67,9 @@ module.exports = async function ocr(url, id) {
         width: nameWidth,
         height: nameHeight,
       }).toFile(outputImage)
-    } catch { break }
+    } catch { continue }
 
-    let cardName
+    let cardName: string
     try {
       cardName = await tesseract.recognize(outputImage, tesseractConfig)
     } catch (e) { console.error(e) ; continue }
@@ -75,9 +78,9 @@ module.exports = async function ocr(url, id) {
       serie: cardSerie.split("\n").map(e => e.trim()).join(' ').trim(),
       name: cardName.split("\n").map(e => e.trim()).join(' ').trim(),
     };
-    (async () => { fs.unlink(outputImage, () => {}) })().catch(console.error);
+    (async () => { fs.unlink(outputImage, () => '') })().catch(console.error);
   }
-  (async () => { fs.unlink(originalImage, () => {}) })().catch(console.error);
+  (async () => { fs.unlink(originalImage, () => '') })().catch(console.error);
 
   return cards
 }
